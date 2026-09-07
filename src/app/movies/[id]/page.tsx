@@ -3,9 +3,11 @@
 import { use, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { getTmdbImageUrl, type Movie } from '@/lib/shared';
+import { getTmdbImageUrl, resolvePlaybackUrl, type Movie } from '@/lib/shared';
 import { MovieRow } from '@/components/MovieRow';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { EmbedPlayer } from '@/components/EmbedPlayer';
+import { HlsPlayer } from '@/components/HlsPlayer';
 import { useAuthStore } from '@/store/auth';
 
 export default function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -51,6 +53,12 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   const trailer = videos?.find((v) => v.site === 'YouTube' && v.type === 'Trailer')?.key
     || movie?.trailerKey;
 
+  const playback = movie?.playback;
+  const canPlayFull = Boolean(
+    playback?.available && playback.playerUrl
+    || movie?.videoUrl,
+  );
+
   if (isLoading || !movie) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -60,6 +68,14 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const backdrop = getTmdbImageUrl(movie.backdropPath, 'original');
+  const hostedUrl = movie.videoUrl || (playback?.mode === 'HOSTED' ? playback.playerUrl : null);
+  const embedUrl = playback?.mode === 'EMBED' && playback.playerUrl
+    ? resolvePlaybackUrl(playback.playerUrl)
+    : null;
+  const hlsUrl = playback?.hlsUrl || playback?.playerUrl;
+  const streamUrl = playback?.mode === 'URDBOX' && hlsUrl
+    ? resolvePlaybackUrl(hlsUrl)
+    : null;
 
   return (
     <div className="min-h-screen pt-16">
@@ -78,7 +94,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
           </div>
           {movie.overview && <p className="mb-6 max-w-2xl text-gray-300">{movie.overview}</p>}
           <div className="flex flex-wrap gap-3">
-            {movie.videoUrl && (
+            {canPlayFull && (
               <button
                 onClick={() => setShowPlayer(true)}
                 className="rounded bg-white px-6 py-2.5 font-semibold text-black hover:bg-gray-200"
@@ -135,9 +151,21 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      {showPlayer && movie.videoUrl && (
+      {showPlayer && embedUrl && (
+        <EmbedPlayer src={embedUrl} onClose={() => setShowPlayer(false)} />
+      )}
+
+      {showPlayer && streamUrl && !embedUrl && (
+        <HlsPlayer
+          src={streamUrl}
+          poster={getTmdbImageUrl(movie.backdropPath, 'w780') ?? undefined}
+          onClose={() => setShowPlayer(false)}
+        />
+      )}
+
+      {showPlayer && hostedUrl && !embedUrl && !streamUrl && (
         <VideoPlayer
-          src={movie.videoUrl}
+          src={hostedUrl}
           poster={getTmdbImageUrl(movie.backdropPath, 'w780') ?? undefined}
           onProgress={(p) => user && historyMutation.mutate(p)}
           onClose={() => setShowPlayer(false)}

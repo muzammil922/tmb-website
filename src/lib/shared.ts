@@ -28,6 +28,14 @@ export interface MovieCast {
   profilePath?: string | null;
 }
 
+export interface MoviePlayback {
+  mode: 'HOSTED' | 'EMBED' | 'URDBOX' | null;
+  available: boolean;
+  source: string | null;
+  playerUrl: string | null;
+  hlsUrl?: string | null;
+}
+
 export interface Movie {
   id: string;
   tmdbId?: number | null;
@@ -48,10 +56,22 @@ export interface Movie {
   videoProvider?: string | null;
   videoDuration?: number | null;
   trailerKey?: string | null;
+  playback?: MoviePlayback;
   genres?: Genre[];
   cast?: MovieCast[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+export function getApiOrigin() {
+  return API_URL.replace(/\/api\/?$/, '');
+}
+
+export function resolvePlaybackUrl(playerUrl: string) {
+  if (playerUrl.startsWith('http')) return playerUrl;
+  return `${getApiOrigin()}${playerUrl}`;
 }
 
 export interface PaginatedResponse<T> {
