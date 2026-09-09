@@ -7,6 +7,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { getTmdbImageUrl, resolvePlaybackUrl, type Movie } from '@/lib/shared';
 import { MovieRow } from '@/components/MovieRow';
+import { MovieCard } from '@/components/MovieCard';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { EmbedPlayer } from '@/components/EmbedPlayer';
 import { HlsPlayer } from '@/components/HlsPlayer';
@@ -19,6 +20,87 @@ import {
   CloseIcon,
   ClockIcon,
 } from '@/components/icons';
+
+/* ───── Skeleton Components ───── */
+
+function HeroSkeleton() {
+  return (
+    <section className="relative min-h-[580px] w-full lg:h-[78vh] lg:min-h-[600px]">
+      <div className="absolute inset-0 skeleton-shimmer" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-black/35" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#08080c] via-[#08080c]/85 to-transparent md:w-3/4" />
+      <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-6 pb-16 pt-32 md:px-12">
+        {/* Breadcrumb skeleton */}
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-3 w-10 rounded skeleton-shimmer" />
+          <div className="h-3 w-3 rounded skeleton-shimmer" />
+          <div className="h-3 w-14 rounded skeleton-shimmer" />
+          <div className="h-3 w-3 rounded skeleton-shimmer" />
+          <div className="h-3 w-32 rounded skeleton-shimmer" />
+        </div>
+        {/* Title */}
+        <div className="mb-3 h-12 w-96 max-w-full rounded-lg skeleton-shimmer md:h-16" />
+        {/* Badges */}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="h-7 w-24 rounded-md skeleton-shimmer" />
+          <div className="h-7 w-28 rounded-md skeleton-shimmer" />
+          <div className="h-7 w-16 rounded-md skeleton-shimmer" />
+          <div className="h-7 w-20 rounded-md skeleton-shimmer" />
+          <div className="h-7 w-20 rounded-md skeleton-shimmer" />
+        </div>
+        {/* Overview */}
+        <div className="mb-6 max-w-2xl space-y-2">
+          <div className="h-4 w-full rounded skeleton-shimmer" />
+          <div className="h-4 w-5/6 rounded skeleton-shimmer" />
+          <div className="h-4 w-3/4 rounded skeleton-shimmer" />
+        </div>
+        {/* Buttons */}
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-40 rounded-xl skeleton-shimmer" />
+          <div className="h-12 w-36 rounded-xl skeleton-shimmer" />
+          <div className="h-12 w-44 rounded-xl skeleton-shimmer" />
+          <div className="h-11 w-11 rounded-xl skeleton-shimmer" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CastSkeleton() {
+  return (
+    <section className="mx-auto max-w-7xl px-6 py-12 md:px-12">
+      <div className="mb-6 h-7 w-40 rounded-lg skeleton-shimmer" />
+      <div className="flex gap-5 overflow-hidden pb-4">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="w-28 flex-shrink-0 text-center">
+            <div className="mx-auto h-24 w-24 rounded-full skeleton-shimmer" />
+            <div className="mt-2.5 mx-auto h-3 w-20 rounded skeleton-shimmer" />
+            <div className="mt-1 mx-auto h-2.5 w-16 rounded skeleton-shimmer" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RelatedRowSkeleton() {
+  return (
+    <section className="mb-12 px-6 md:px-12">
+      <div className="mb-4 h-7 w-56 rounded-lg skeleton-shimmer" />
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="w-40 flex-shrink-0 md:w-48">
+            <div className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
+            <div className="mt-2 h-3.5 w-3/4 rounded skeleton-shimmer" />
+            <div className="mt-1 h-2.5 w-1/2 rounded skeleton-shimmer" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ───── Main Page ───── */
 
 export default function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -44,7 +126,8 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: similar } = useQuery({
+  // Related movies from same genres (from database)
+  const { data: similar, isLoading: isSimilarLoading } = useQuery({
     queryKey: ['similar', id],
     queryFn: async () => {
       try {
@@ -55,7 +138,23 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
       }
     },
     enabled: !!movie,
+    staleTime: 1000 * 60 * 5,
   });
+
+  // Per-genre breakdowns for the "More in [Genre]" sections
+  const movieGenres = movie?.genres ?? [];
+  const genreGroupedMovies: { genre: string; movies: Movie[] }[] = [];
+
+  if (similar && similar.length > 0 && movieGenres.length > 0) {
+    for (const genre of movieGenres.slice(0, 3)) {
+      const genreMovies = similar.filter(
+        (m) => m.genres?.some((g) => g.name === genre.name) && m.id !== id
+      );
+      if (genreMovies.length > 0) {
+        genreGroupedMovies.push({ genre: genre.name, movies: genreMovies.slice(0, 20) });
+      }
+    }
+  }
 
   const { data: videos } = useQuery({
     queryKey: ['videos', id],
@@ -78,10 +177,14 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     }
   }, [autoPlay, movie]);
 
+  // ─── SKELETON LOADING STATE ───
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-red-600 border-t-transparent" />
+      <div className="min-h-screen">
+        <HeroSkeleton />
+        <CastSkeleton />
+        <RelatedRowSkeleton />
+        <RelatedRowSkeleton />
       </div>
     );
   }
@@ -180,12 +283,13 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
               </span>
             )}
             {movie.genres?.map((g) => (
-              <span
+              <Link
                 key={g.id}
-                className="rounded-md border border-white/10 bg-black/40 px-2.5 py-1 text-zinc-300 font-medium"
+                href={`/movies?genre=${encodeURIComponent(g.name)}`}
+                className="rounded-md border border-white/10 bg-black/40 px-2.5 py-1 text-zinc-300 font-medium hover:bg-white/10 hover:text-white transition"
               >
                 {g.name}
-              </span>
+              </Link>
             ))}
           </div>
 
@@ -260,6 +364,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
                       src={getTmdbImageUrl(actor.profilePath, 'w185')!}
                       alt={actor.name}
                       className="h-full w-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs font-bold text-zinc-400">
@@ -279,16 +384,49 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
         </section>
       )}
 
-      {/* Similar Movies Recommendations */}
-      {similar && similar.length > 0 && (
-        <div className="pb-16">
-          <MovieRow
-            title="You Might Also Like"
-            subtitle="More blockbusters from the catalog"
-            movies={similar}
-          />
-        </div>
+      {/* ── Related Movies Section ── */}
+      {isSimilarLoading && (
+        <>
+          <RelatedRowSkeleton />
+          <RelatedRowSkeleton />
+        </>
       )}
+
+      {/* All Related Movies in one big row */}
+      {similar && similar.length > 0 && (
+        <MovieRow
+          title="You Might Also Like"
+          subtitle={`Similar movies based on ${movieGenres.map((g) => g.name).join(', ')}`}
+          movies={similar}
+        />
+      )}
+
+      {/* Per-Genre Breakdown Sections */}
+      {genreGroupedMovies.map((group) => (
+        <section key={group.genre} className="mb-10 px-6 md:px-12">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-white md:text-2xl">
+                More in {group.genre}
+              </h2>
+              <p className="mt-1 text-xs text-zinc-400">
+                {group.movies.length} related {group.genre.toLowerCase()} movies
+              </p>
+            </div>
+            <Link
+              href={`/movies?genre=${encodeURIComponent(group.genre)}`}
+              className="text-xs font-semibold text-zinc-400 transition hover:text-red-500 hover:underline"
+            >
+              See All &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {group.movies.slice(0, 12).map((m) => (
+              <MovieCard key={m.id} movie={m} />
+            ))}
+          </div>
+        </section>
+      ))}
 
       {/* Active Video Player Overlays */}
       {showPlayer && embedUrl && (

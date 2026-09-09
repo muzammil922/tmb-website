@@ -109,10 +109,16 @@ export default function SearchPage() {
           ))}
         </div>
 
-        {/* Loading Spinner */}
+        {/* Skeleton Loading Grid */}
         {isLoading && debounced && (
-          <div className="flex justify-center py-12">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-t-transparent" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i}>
+                <div className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
+                <div className="mt-2 h-3.5 w-3/4 rounded skeleton-shimmer" />
+                <div className="mt-1 h-2.5 w-1/2 rounded skeleton-shimmer" />
+              </div>
+            ))}
           </div>
         )}
 
