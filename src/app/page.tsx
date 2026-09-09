@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { HeroBanner } from '@/components/HeroBanner';
+import { PromoBannerSlider } from '@/components/PromoBannerSlider';
 import { MovieRow } from '@/components/MovieRow';
 import { MovieCard } from '@/components/MovieCard';
 import { useWatchlistStore } from '@/store/watchlist';
-import type { HomepageSection, Movie } from '@/lib/shared';
+import type { Banner, HomepageSection, Movie } from '@/lib/shared';
 import { ClockIcon, SparklesIcon } from '@/components/icons';
 
 const GENRE_FILTERS = [
@@ -28,7 +29,7 @@ export default function HomePage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['homepage'],
     queryFn: async () => {
-      const res = await api.get<{ hero: Movie | null; sections: HomepageSection[] }>('/homepage');
+      const res = await api.get<{ hero: Movie | null; banners?: Banner[]; sections: HomepageSection[] }>('/homepage');
       return res.data;
     },
     staleTime: 1000 * 60 * 2,
@@ -114,6 +115,9 @@ export default function HomePage() {
           })}
         </div>
       </div>
+
+      {/* Promotional Banners Showcase (Managed via Admin Portal) */}
+      {selectedGenre === 'All' && <PromoBannerSlider banners={data?.banners} />}
 
       {/* If specific genre is selected, display filtered real movies */}
       {selectedGenre !== 'All' && (
