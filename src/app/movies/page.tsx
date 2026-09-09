@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { MovieCard } from '@/components/MovieCard';
@@ -24,6 +24,9 @@ export default function MoviesPage() {
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['movies', category, page],
@@ -39,22 +42,45 @@ export default function MoviesPage() {
           return [...prev, ...newMovies];
         });
       }
-      setTotalPages(result.totalPages ?? 1);
+      const tp = result.totalPages ?? 1;
+      setTotalPages(tp);
       setTotalResults(result.totalResults ?? 0);
+      setHasMore(page < tp);
       return result;
     },
     staleTime: 1000 * 60 * 2,
   });
 
+  // Intersection Observer for infinite scroll
+  const observerCallback = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && hasMore && !isFetching) {
+        setPage((prev) => prev + 1);
+      }
+    },
+    [hasMore, isFetching],
+  );
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(observerCallback, {
+      root: null,
+      rootMargin: '600px', // trigger 600px before reaching the bottom
+      threshold: 0,
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [observerCallback]);
+
   const handleCategoryChange = (cat: string) => {
     setCategory(cat);
     setPage(1);
     setAllMovies([]);
+    setHasMore(true);
     setSelectedGenre('All Genres');
-  };
-
-  const handleLoadMore = () => {
-    setPage((prev) => prev + 1);
   };
 
   const displayMovies =
@@ -77,7 +103,7 @@ export default function MoviesPage() {
         </h1>
         <p className="mt-2 max-w-xl text-sm text-zinc-400">
           {totalResults > 0
-            ? `${totalResults.toLocaleString()} movies in the library — stream instantly with zero subscription.`
+            ? `${totalResults.toLocaleString()} movies in the library — scroll to explore them all.`
             : 'Stream movies directly from the library with zero subscription and instant HD playback.'}
         </p>
       </div>
@@ -148,38 +174,26 @@ export default function MoviesPage() {
             ))}
           </div>
 
-          {/* Load More Button */}
-          {selectedGenre === 'All Genres' && page < totalPages && (
-            <div className="mt-12 flex flex-col items-center gap-3">
-              <p className="text-xs text-zinc-500">
-                Showing {allMovies.length.toLocaleString()} of {totalResults.toLocaleString()} movies
-              </p>
-              <button
-                onClick={handleLoadMore}
-                disabled={isFetching}
-                className="flex items-center gap-2 rounded-xl bg-zinc-800 px-8 py-3 text-sm font-bold text-white transition hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
-              >
-                {isFetching ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Loading more...</span>
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon size={15} className="text-red-400" />
-                    <span>Load More Movies</span>
-                  </>
-                )}
-              </button>
+          {/* Infinite scroll sentinel — triggers next page load */}
+          {selectedGenre === 'All Genres' && hasMore && (
+            <div ref={sentinelRef} className="mt-8 flex flex-col items-center gap-3 py-4">
+              {isFetching && (
+                <div className="grid w-full grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i} className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Loading more overlay at bottom */}
-          {isFetching && page > 1 && (
-            <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
-              ))}
+          {/* End of catalog message */}
+          {!hasMore && selectedGenre === 'All Genres' && (
+            <div className="mt-12 flex flex-col items-center gap-2 py-8 text-center">
+              <span className="text-2xl">🎬</span>
+              <p className="text-sm font-medium text-zinc-400">
+                You&apos;ve seen all {totalResults.toLocaleString()} movies in the catalog
+              </p>
             </div>
           )}
         </>
