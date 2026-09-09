@@ -8,9 +8,7 @@ import api from '@/lib/api';
 import { getTmdbImageUrl, resolvePlaybackUrl, type Movie } from '@/lib/shared';
 import { MovieRow } from '@/components/MovieRow';
 import { MovieCard } from '@/components/MovieCard';
-import { VideoPlayer } from '@/components/VideoPlayer';
-import { EmbedPlayer } from '@/components/EmbedPlayer';
-import { HlsPlayer } from '@/components/HlsPlayer';
+import { NetflixPlayer, type VideoSource } from '@/components/NetflixPlayer';
 import { useWatchlistStore } from '@/store/watchlist';
 import {
   PlayIcon,
@@ -212,21 +210,79 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     movie.trailerKey;
 
   const playback = movie.playback;
-  const canPlayFull = Boolean(
-    (playback?.available && playback.playerUrl) || movie.videoUrl
-  );
+  const tmdbId = movie.tmdbId || (!Number.isNaN(Number(movie.id)) ? Number(movie.id) : null);
 
+  // Multi-server playback sources for guaranteed playback & chunk streaming
+  const sources: VideoSource[] = [];
+
+  // 1. Direct Hosted Video / HLS from DB
+  if (movie.videoUrl) {
+    const isHls = movie.videoUrl.includes('.m3u8');
+    sources.push({
+      id: 'server-direct',
+      name: isHls ? 'Server 1 (HLS Ultra Fast)' : 'Server 1 (Fast HD Chunks)',
+      url: movie.videoUrl,
+      type: isHls ? 'hls' : 'mp4',
+    });
+  }
+
+  // 2. URDBOX HLS stream
+  if (playback?.mode === 'URDBOX' && (playback.hlsUrl || playback.playerUrl)) {
+    const streamHls = resolvePlaybackUrl(playback.hlsUrl || playback.playerUrl!);
+    sources.push({
+      id: 'server-urdbox',
+      name: 'Server 1 (HLS Ultra Fast)',
+      url: streamHls,
+      type: 'hls',
+    });
+  }
+
+  // 3. Backend Embed player
+  if (playback?.mode === 'EMBED' && playback.playerUrl) {
+    sources.push({
+      id: 'server-embed-primary',
+      name: 'Server 2 (HD Stream)',
+      url: resolvePlaybackUrl(playback.playerUrl),
+      type: 'embed',
+    });
+  }
+
+  // 4. Multi-Server Cloud Streams if tmdbId exists
+  if (tmdbId) {
+    if (!sources.some((s) => s.id === 'server-embed-primary')) {
+      sources.push({
+        id: 'server-autoembed',
+        name: 'Server 1 (AutoEmbed HD)',
+        url: `https://autoembed.co/movie/tmdb/${tmdbId}`,
+        type: 'embed',
+      });
+    }
+    sources.push({
+      id: 'server-smashy',
+      name: 'Server 3 (Smashy Fast)',
+      url: `https://player.smashy.stream/movie/${tmdbId}`,
+      type: 'embed',
+    });
+    sources.push({
+      id: 'server-multiembed',
+      name: 'Server 4 (MultiStream)',
+      url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
+      type: 'embed',
+    });
+  }
+
+  // 5. Fallback official trailer preview
+  if (trailer && sources.length === 0) {
+    sources.push({
+      id: 'server-trailer',
+      name: 'Official Trailer Preview',
+      url: `https://www.youtube-nocookie.com/embed/${trailer}?autoplay=1`,
+      type: 'embed',
+    });
+  }
+
+  const canPlayFull = sources.length > 0;
   const backdrop = getTmdbImageUrl(movie.backdropPath, 'original');
-
-  const hostedUrl =
-    movie.videoUrl || (playback?.mode === 'HOSTED' ? playback.playerUrl : null);
-  const embedUrl =
-    playback?.mode === 'EMBED' && playback.playerUrl
-      ? resolvePlaybackUrl(playback.playerUrl)
-      : null;
-  const hlsUrl = playback?.hlsUrl || playback?.playerUrl;
-  const streamUrl =
-    playback?.mode === 'URDBOX' && hlsUrl ? resolvePlaybackUrl(hlsUrl) : null;
 
   const year = movie.releaseDate ? movie.releaseDate.split('-')[0] : null;
   const runtimeHours = movie.runtime ? Math.floor(movie.runtime / 60) : null;
@@ -428,23 +484,13 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
         </section>
       ))}
 
-      {/* Active Video Player Overlays */}
-      {showPlayer && embedUrl && (
-        <EmbedPlayer src={embedUrl} onClose={() => setShowPlayer(false)} />
-      )}
-
-      {showPlayer && streamUrl && !embedUrl && (
-        <HlsPlayer
-          src={streamUrl}
-          poster={getTmdbImageUrl(movie.backdropPath, 'w780') ?? undefined}
-          onClose={() => setShowPlayer(false)}
-        />
-      )}
-
-      {showPlayer && hostedUrl && !embedUrl && !streamUrl && (
-        <VideoPlayer
-          src={hostedUrl}
-          poster={getTmdbImageUrl(movie.backdropPath, 'w780') ?? undefined}
+      {/* Netflix Cinema Video Player */}
+      {showPlayer && sources.length > 0 && (
+        <NetflixPlayer
+          title={movie.title}
+          year={year}
+          sources={sources}
+          poster={getTmdbImageUrl(movie.backdropPath, 'original') ?? undefined}
           onProgress={(progress) => updateProgress(movie, progress)}
           onClose={() => setShowPlayer(false)}
         />
