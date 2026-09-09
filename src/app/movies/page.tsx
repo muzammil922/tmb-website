@@ -15,28 +15,54 @@ const categories = [
   { key: 'upcoming', label: 'Upcoming', icon: SparklesIcon },
 ];
 
-const genreTags = ['All Genres', 'Action', 'Sci-Fi', 'Drama', 'Adventure', 'Animation', 'Comedy', 'Crime'];
+const genreTags = ['All Genres', 'Action', 'Sci-Fi', 'Drama', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Horror', 'Romance', 'Thriller', 'Documentary'];
 
 export default function MoviesPage() {
   const [category, setCategory] = useState('trending');
   const [selectedGenre, setSelectedGenre] = useState('All Genres');
+  const [page, setPage] = useState(1);
+  const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['movies', category],
+  const { isLoading, isError, isFetching, refetch } = useQuery({
+    queryKey: ['movies', category, page],
     queryFn: async () => {
-      const res = await api.get<PaginatedResponse<Movie>>(`/movies/${category}`);
-      return res.data;
+      const res = await api.get<PaginatedResponse<Movie>>(`/movies/${category}?page=${page}&limit=48`);
+      const result = res.data;
+      if (page === 1) {
+        setAllMovies(result.data ?? []);
+      } else {
+        setAllMovies((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMovies = (result.data ?? []).filter((m) => !existingIds.has(m.id));
+          return [...prev, ...newMovies];
+        });
+      }
+      setTotalPages(result.totalPages ?? 1);
+      setTotalResults(result.totalResults ?? 0);
+      return result;
     },
     staleTime: 1000 * 60 * 2,
   });
 
-  const rawList = data?.data ?? [];
+  const handleCategoryChange = (cat: string) => {
+    setCategory(cat);
+    setPage(1);
+    setAllMovies([]);
+    setSelectedGenre('All Genres');
+  };
+
+  const handleLoadMore = () => {
+    setPage((prev) => prev + 1);
+  };
+
   const displayMovies =
     selectedGenre === 'All Genres'
-      ? rawList
-      : rawList.filter((m) =>
-        m.genres?.some((g) => g.name.toLowerCase() === selectedGenre.toLowerCase())
-      );
+      ? allMovies
+      : allMovies.filter((m) =>
+          m.genres?.some((g) => g.name.toLowerCase() === selectedGenre.toLowerCase())
+        );
 
   return (
     <div className="min-h-screen px-6 pb-20 pt-28 md:px-12">
@@ -50,7 +76,9 @@ export default function MoviesPage() {
           Browse Movies
         </h1>
         <p className="mt-2 max-w-xl text-sm text-zinc-400">
-          Stream movies directly from the library with zero subscription and instant HD playback.
+          {totalResults > 0
+            ? `${totalResults.toLocaleString()} movies in the library — stream instantly with zero subscription.`
+            : 'Stream movies directly from the library with zero subscription and instant HD playback.'}
         </p>
       </div>
 
@@ -61,7 +89,7 @@ export default function MoviesPage() {
           return (
             <button
               key={cat.key}
-              onClick={() => setCategory(cat.key)}
+              onClick={() => handleCategoryChange(cat.key)}
               className={`rounded-full px-5 py-2.5 text-xs font-bold transition-all duration-200 ${isActive
                 ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
                 : 'glass-panel text-zinc-300 hover:bg-white/10 hover:text-white'
@@ -94,9 +122,9 @@ export default function MoviesPage() {
       </div>
 
       {/* Movies Grid */}
-      {isLoading ? (
+      {isLoading && page === 1 ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: 24 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
           ))}
         </div>
@@ -113,11 +141,48 @@ export default function MoviesPage() {
           </button>
         </div>
       ) : displayMovies.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {displayMovies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {displayMovies.map((movie) => (
+              <MovieCard key={movie.id} movie={movie} />
+            ))}
+          </div>
+
+          {/* Load More Button */}
+          {selectedGenre === 'All Genres' && page < totalPages && (
+            <div className="mt-12 flex flex-col items-center gap-3">
+              <p className="text-xs text-zinc-500">
+                Showing {allMovies.length.toLocaleString()} of {totalResults.toLocaleString()} movies
+              </p>
+              <button
+                onClick={handleLoadMore}
+                disabled={isFetching}
+                className="flex items-center gap-2 rounded-xl bg-zinc-800 px-8 py-3 text-sm font-bold text-white transition hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+              >
+                {isFetching ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Loading more...</span>
+                  </>
+                ) : (
+                  <>
+                    <SparklesIcon size={15} className="text-red-400" />
+                    <span>Load More Movies</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Loading more overlay at bottom */}
+          {isFetching && page > 1 && (
+            <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="aspect-[2/3] w-full rounded-xl skeleton-shimmer" />
+              ))}
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <span className="text-4xl">🎬</span>
