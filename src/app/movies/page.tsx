@@ -22,7 +22,6 @@ export default function MoviesPage() {
   const [selectedGenre, setSelectedGenre] = useState('All Genres');
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
@@ -43,7 +42,6 @@ export default function MoviesPage() {
         });
       }
       const tp = result.totalPages ?? 1;
-      setTotalPages(tp);
       setTotalResults(result.totalResults ?? 0);
       setHasMore(page < tp);
       return result;

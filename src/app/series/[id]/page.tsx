@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useMemo, useEffect } from 'react';
+import { use, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -13,6 +13,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@/components/icons';
+
+interface StreamItem {
+  name?: string;
+  url: string;
+  type?: 'hls' | 'mp4' | 'embed' | string;
+}
 
 export default function SeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -32,7 +38,7 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
   });
 
   // Load active episode playback stream sources
-  const { data: playbackData, isLoading: isPlaybackLoading } = useQuery({
+  const { data: playbackData } = useQuery({
     queryKey: ['episode-playback', id, selectedSeasonNumber, selectedEpisodeNumber],
     queryFn: async () => {
       const res = await api.get(`/series/${id}/playback/${selectedSeasonNumber}/${selectedEpisodeNumber}`);
@@ -94,7 +100,7 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
 
     // 1. Direct or UrduBox stream from playback API
     if (playbackData?.streams && Array.isArray(playbackData.streams)) {
-      playbackData.streams.forEach((stream: any, idx: number) => {
+      playbackData.streams.forEach((stream: StreamItem, idx: number) => {
         sources.push({
           id: `stream-${idx}`,
           name: stream.name || `Server ${idx + 1} (${stream.type?.toUpperCase()})`,

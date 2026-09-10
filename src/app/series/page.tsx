@@ -19,7 +19,7 @@ export default function SeriesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['series-catalog', selectedCategory, search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -36,7 +36,6 @@ export default function SeriesPage() {
   });
 
   const seriesList: Series[] = data?.data || [];
-  const total = data?.total || 0;
   const totalPages = data?.totalPages || 1;
 
   return (
