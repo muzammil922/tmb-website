@@ -204,7 +204,7 @@ export default function MyListPage() {
               </div>
               <h3 className="mt-4 text-xl font-bold text-white">No watch history yet</h3>
               <p className="mt-1 max-w-sm text-xs text-zinc-400">
-                When you stream movies on TMB, your playback progress will automatically appear here so you can resume anytime.
+                When you stream movies on Flowlab, your playback progress will automatically appear here so you can resume anytime.
               </p>
               <Link
                 href="/"

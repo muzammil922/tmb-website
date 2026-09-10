@@ -47,7 +47,7 @@ export function HeroBanner({ movie }: HeroBannerProps) {
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#08080c] to-transparent" />
 
         {/* Content Container */}
-        <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-6 pb-20 pt-32 md:px-12 lg:pb-28">
+        <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-6 pb-20 pt-16 md:px-12 lg:pb-28">
           {/* Spotlight Tag */}
           <div className="mb-3 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-600/20 px-3 py-1 text-xs font-semibold text-red-400 backdrop-blur-md">
