@@ -29,6 +29,8 @@ export function Navbar() {
   const links = [
     { href: '/', label: 'Home' },
     { href: '/movies', label: 'Movies' },
+    { href: '/series', label: 'Web Series' },
+    { href: '/anime', label: 'Anime' },
     { href: '/search', label: 'Search' },
     {
       href: '/my-list',
