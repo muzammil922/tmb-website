@@ -520,8 +520,11 @@ export function NetflixPlayer({
         <div className="relative h-full w-full">
           <iframe
             src={currentSource.url}
+            title={title}
             className="h-full w-full border-0"
             allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
           />
         </div>

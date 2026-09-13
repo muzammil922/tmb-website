@@ -247,31 +247,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     });
   }
 
-  // 4. Multi-Server Cloud Streams if tmdbId exists
-  if (tmdbId) {
-    if (!sources.some((s) => s.id === 'server-embed-primary')) {
-      sources.push({
-        id: 'server-autoembed',
-        name: 'Server 1 (AutoEmbed HD)',
-        url: `https://autoembed.co/movie/tmdb/${tmdbId}`,
-        type: 'embed',
-      });
-    }
-    sources.push({
-      id: 'server-smashy',
-      name: 'Server 3 (Smashy Fast)',
-      url: `https://player.smashy.stream/movie/${tmdbId}`,
-      type: 'embed',
-    });
-    sources.push({
-      id: 'server-multiembed',
-      name: 'Server 4 (MultiStream)',
-      url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
-      type: 'embed',
-    });
-  }
-
-  // 5. Fallback official trailer preview
+  // 4. Fallback official trailer preview
   if (trailer && sources.length === 0) {
     sources.push({
       id: 'server-trailer',

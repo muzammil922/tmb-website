@@ -123,39 +123,6 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
       }
     }
 
-    // 3. Multi-server Cloud streams if TMDB ID exists
-    const tmdbId = series?.tmdbId;
-    if (tmdbId) {
-      sources.push({
-        id: 'server-autoembed',
-        name: 'Server 2 (AutoEmbed HD)',
-        url: `https://autoembed.co/tv/tmdb/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
-        type: 'embed',
-      });
-      sources.push({
-        id: 'server-smashy',
-        name: 'Server 3 (Smashy Cloud)',
-        url: `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}&season=${selectedSeasonNumber}&episode=${selectedEpisodeNumber}`,
-        type: 'embed',
-      });
-      sources.push({
-        id: 'server-vidsrc',
-        name: 'Server 4 (Multi-Source 4K)',
-        url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${selectedSeasonNumber}&episode=${selectedEpisodeNumber}`,
-        type: 'embed',
-      });
-    }
-
-    // Fallback demo if no stream is configured
-    if (sources.length === 0) {
-      sources.push({
-        id: 'server-placeholder',
-        name: 'Server 1 (AutoEmbed HD)',
-        url: `https://autoembed.co/tv/tmdb/${tmdbId || 1399}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
-        type: 'embed',
-      });
-    }
-
     return sources;
   }, [playbackData, activeEpisode, series, selectedSeasonNumber, selectedEpisodeNumber]);
 
