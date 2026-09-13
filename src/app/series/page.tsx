@@ -10,7 +10,7 @@ import { FilmIcon, FlameIcon, StarIcon, SparklesIcon } from '@/components/icons'
 const categories = [
   { key: 'all', label: 'All Series', icon: FilmIcon },
   { key: 'web-series', label: 'Web Series', icon: SparklesIcon },
-  { key: 'urdubox-dramas', label: 'UrduBox Dramas', icon: StarIcon },
+  { key: 'drama', label: 'Drama', icon: StarIcon },
   { key: 'trending', label: 'Trending', icon: FlameIcon },
 ];
 
@@ -50,7 +50,7 @@ export default function SeriesPage() {
           Web Series & TV Shows
         </h1>
         <p className="mt-1.5 max-w-xl text-sm text-zinc-400">
-          Binge-watch complete seasons and all episodes from UrduBox, MoviesAPI, and top global platforms.
+          Binge-watch complete seasons and all episodes from MoviesAPI, AllManga, and top global platforms.
         </p>
       </div>
 

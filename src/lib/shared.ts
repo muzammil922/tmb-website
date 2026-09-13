@@ -29,11 +29,11 @@ export interface MovieCast {
 }
 
 export interface MoviePlayback {
-  mode: 'HOSTED' | 'EMBED' | 'URDBOX' | null;
+  mode: 'HOSTED' | 'EMBED' | null;
   available: boolean;
   source: string | null;
   playerUrl: string | null;
-  hlsUrl?: string | null;
+  sourcesUrl?: string | null;
 }
 
 export interface Movie {
@@ -187,7 +187,7 @@ export interface DashboardStats {
 
 export const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
-export type TmdbImageSize = 'w92' | 'w154' | 'w185' | 'w342' | 'w500' | 'w780' | 'original';
+export type TmdbImageSize = 'w92' | 'w154' | 'w185' | 'w342' | 'w500' | 'w780' | 'w1280' | 'original';
 
 export function getTmdbImageUrl(path: string | null | undefined, size: TmdbImageSize = 'w500'): string | null {
   if (!path) return null;

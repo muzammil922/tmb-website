@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
+import { resolvePlaybackUrl } from '@/lib/shared';
 
 export interface VideoSource {
   id: string;
   name: string;
   url: string;
-  type: 'hls' | 'mp4' | 'embed';
+  type: 'hls' | 'mp4' | 'embed' | 'resolve';
   quality?: string;
 }
 
@@ -59,7 +60,17 @@ export function NetflixPlayer({
     : [];
 
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
+  const [resolvedStreamUrl, setResolvedStreamUrl] = useState<string | null>(null);
+  const [resolveFailed, setResolveFailed] = useState(false);
   const currentSource = resolvedSources[activeSourceIndex] || null;
+  const effectiveSource =
+    currentSource?.type === 'resolve' && resolvedStreamUrl
+      ? {
+          ...currentSource,
+          url: resolvedStreamUrl,
+          type: resolvedStreamUrl.includes('.m3u8') ? 'hls' as const : 'mp4' as const,
+        }
+      : currentSource;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -142,10 +153,60 @@ export function NetflixPlayer({
     resetControlsTimer();
   }, [isPlaying, resetControlsTimer]);
 
+  const tryNextSource = useCallback(() => {
+    if (activeSourceIndex < resolvedSources.length - 1) {
+      showToast('Switching to backup server...');
+      setResolvedStreamUrl(null);
+      setResolveFailed(false);
+      setActiveSourceIndex((prev) => prev + 1);
+      return true;
+    }
+    return false;
+  }, [activeSourceIndex, resolvedSources.length, showToast]);
+
+  // Resolve anime / dynamic sources before playback
+  useEffect(() => {
+    if (!currentSource || currentSource.type !== 'resolve') {
+      setResolvedStreamUrl(null);
+      setResolveFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setResolvedStreamUrl(null);
+    setResolveFailed(false);
+    setIsBuffering(true);
+
+    const resolveUrl = resolvePlaybackUrl(currentSource.url);
+
+    fetch(resolveUrl)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const playUrl = data.playUrl || data.proxyUrl || data.url;
+        if (!playUrl) {
+          setResolveFailed(true);
+          tryNextSource();
+          return;
+        }
+        setResolvedStreamUrl(playUrl);
+        setIsBuffering(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResolveFailed(true);
+        tryNextSource();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSource, tryNextSource]);
+
   // Initialize Video & HLS
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !currentSource || currentSource.type === 'embed') return;
+    if (!video || !effectiveSource || effectiveSource.type === 'embed' || effectiveSource.type === 'resolve') return;
 
     setIsBuffering(true);
 
@@ -154,22 +215,23 @@ export function NetflixPlayer({
       hlsRef.current = null;
     }
 
-    const isHlsUrl = currentSource.url.includes('.m3u8') || currentSource.type === 'hls';
+    const isHlsUrl = effectiveSource.url.includes('.m3u8') || effectiveSource.type === 'hls';
 
     if (isHlsUrl) {
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
-          // YouTube/Netflix style buffer: 60s ahead in chunks
-          maxBufferLength: 60,
-          maxMaxBufferLength: 120,
-          maxBufferSize: 60 * 1024 * 1024, // 60MB chunk cache
-          backBufferLength: 30,
-          startLevel: -1, // Auto quality
-          lowLatencyMode: false,
+          // Fast start: small initial buffer, then scale up
+          maxBufferLength: 12,
+          maxMaxBufferLength: 60,
+          maxBufferSize: 30 * 1024 * 1024,
+          backBufferLength: 15,
+          startLevel: 0,
+          lowLatencyMode: true,
+          startFragPrefetch: true,
         });
 
-        hls.loadSource(currentSource.url);
+        hls.loadSource(effectiveSource.url);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -199,10 +261,7 @@ export function NetflixPlayer({
               default:
                 hls.destroy();
                 // Auto switch to next server if available
-                if (activeSourceIndex < resolvedSources.length - 1) {
-                  showToast('Server issue detected. Switching to backup server...');
-                  setActiveSourceIndex((prev) => prev + 1);
-                }
+                tryNextSource();
                 break;
             }
           }
@@ -211,12 +270,12 @@ export function NetflixPlayer({
         hlsRef.current = hls;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Safari HLS
-        video.src = currentSource.url;
+        video.src = effectiveSource.url;
         video.play().catch(() => {});
       }
     } else {
       // Direct MP4 / WebM with progressive chunk loading
-      video.src = currentSource.url;
+      video.src = effectiveSource.url;
       video.load();
       video.play().catch(() => {});
     }
@@ -227,7 +286,7 @@ export function NetflixPlayer({
         hlsRef.current = null;
       }
     };
-  }, [currentSource, activeSourceIndex, resolvedSources.length, showToast]);
+  }, [effectiveSource, activeSourceIndex, resolvedSources.length, showToast, tryNextSource]);
 
   // Initial Progress Seek
   useEffect(() => {
@@ -516,10 +575,10 @@ export function NetflixPlayer({
       }`}
     >
       {/* ───── Video Element (or Embed iFrame) ───── */}
-      {currentSource?.type === 'embed' ? (
+      {effectiveSource?.type === 'embed' ? (
         <div className="relative h-full w-full">
           <iframe
-            src={currentSource.url}
+            src={effectiveSource.url}
             title={title}
             className="h-full w-full border-0"
             allowFullScreen
@@ -582,7 +641,7 @@ export function NetflixPlayer({
       )}
 
       {/* ───── Netflix Center Loading / Buffering Spinner ───── */}
-      {isBuffering && currentSource?.type !== 'embed' && (
+      {isBuffering && effectiveSource?.type !== 'embed' && (
         <div className="pointer-events-none absolute z-30 flex flex-col items-center justify-center gap-3">
           <div className="h-16 w-16 rounded-full border-4 border-red-600/30 border-t-red-600 animate-spin" />
           <span className="text-xs font-semibold tracking-wider text-zinc-300 uppercase drop-shadow-md">
@@ -634,14 +693,14 @@ export function NetflixPlayer({
           </div>
 
           {/* Server Switcher in Top Bar for Embeds */}
-          {currentSource?.type === 'embed' && resolvedSources.length > 1 && (
+          {effectiveSource?.type === 'embed' && resolvedSources.length > 1 && (
             <div className="relative">
               <button
                 onClick={() => setShowServerMenu(!showServerMenu)}
                 className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/25 transition"
               >
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span>{currentSource.name}</span>
+                <span>{effectiveSource.name}</span>
               </button>
 
               {showServerMenu && (
@@ -688,7 +747,7 @@ export function NetflixPlayer({
       </div>
 
       {/* ───── Bottom Netflix Controls Bar (for Direct Streams) ───── */}
-      {currentSource?.type !== 'embed' && (
+      {effectiveSource?.type !== 'embed' && (
         <div
           className={`absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/95 via-black/75 to-transparent px-6 pb-6 pt-16 transition-all duration-300 ${
             showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'

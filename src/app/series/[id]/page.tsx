@@ -15,9 +15,10 @@ import {
 } from '@/components/icons';
 
 interface StreamItem {
+  id?: string;
   name?: string;
   url: string;
-  type?: 'hls' | 'mp4' | 'embed' | string;
+  type?: 'hls' | 'mp4' | 'embed' | 'resolve' | string;
 }
 
 export default function SeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +27,7 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number>(1);
   const [selectedEpisodeNumber, setSelectedEpisodeNumber] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [animeDub, setAnimeDub] = useState(false);
 
   // Load series details with all seasons and episodes
   const { data: series, isLoading, isError } = useQuery<Series>({
@@ -39,10 +41,18 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
 
   // Load active episode playback stream sources
   const { data: playbackData } = useQuery({
-    queryKey: ['episode-playback', id, selectedSeasonNumber, selectedEpisodeNumber],
+    queryKey: ['episode-playback', id, selectedSeasonNumber, selectedEpisodeNumber, animeDub],
     queryFn: async () => {
       const res = await api.get(`/series/${id}/playback/${selectedSeasonNumber}/${selectedEpisodeNumber}`);
-      return res.data;
+      const data = res.data;
+      if (animeDub && data?.sources) {
+        data.sources = data.sources.map((src: StreamItem) =>
+          src.type === 'resolve' && src.url.includes('/resolve/anime')
+            ? { ...src, url: `${src.url}${src.url.includes('?') ? '&' : '?'}dub=true` }
+            : src,
+        );
+      }
+      return data;
     },
     enabled: !!series,
     staleTime: 1000 * 60 * 5,
@@ -98,14 +108,20 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
   const videoSources: VideoSource[] = useMemo(() => {
     const sources: VideoSource[] = [];
 
-    // 1. Direct or UrduBox stream from playback API
-    if (playbackData?.streams && Array.isArray(playbackData.streams)) {
-      playbackData.streams.forEach((stream: StreamItem, idx: number) => {
+    if (playbackData?.sources && Array.isArray(playbackData.sources)) {
+      playbackData.sources.forEach((stream: StreamItem, idx: number) => {
         sources.push({
-          id: `stream-${idx}`,
-          name: stream.name || `Server ${idx + 1} (${stream.type?.toUpperCase()})`,
+          id: stream.id || `stream-${idx}`,
+          name: stream.name || `Server ${idx + 1}`,
           url: resolvePlaybackUrl(stream.url),
-          type: stream.type === 'hls' ? 'hls' : stream.type === 'embed' ? 'embed' : 'mp4',
+          type:
+            stream.type === 'resolve'
+              ? 'resolve'
+              : stream.type === 'hls'
+              ? 'hls'
+              : stream.type === 'embed'
+              ? 'embed'
+              : 'mp4',
         });
       });
     }
@@ -259,6 +275,19 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div className="flex items-center gap-2">
+              {isAnime && (
+                <button
+                  type="button"
+                  onClick={() => setAnimeDub((d) => !d)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    animeDub
+                      ? 'border-purple-500/50 bg-purple-600/20 text-purple-300'
+                      : 'border-white/10 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
+                  }`}
+                >
+                  {animeDub ? 'Dub' : 'Sub'}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!hasPrevEp}

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { getTmdbImageUrl, type Movie } from '@/lib/shared';
+import { prefetchMovieDetail } from '@/lib/prefetch-movie';
 import { useWatchlistStore } from '@/store/watchlist';
 import { PlayIcon, StarIcon, BookmarkIcon } from './icons';
 
@@ -13,7 +15,8 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ movie, size = 'md', progress }: MovieCardProps) {
-  const poster = getTmdbImageUrl(movie.posterPath, size === 'sm' ? 'w185' : 'w500');
+  const queryClient = useQueryClient();
+  const poster = getTmdbImageUrl(movie.posterPath, size === 'sm' ? 'w185' : 'w342');
   const href = `/movies/${movie.id}`;
   const [imgError, setImgError] = useState(false);
 
@@ -35,8 +38,12 @@ export function MovieCard({ movie, size = 'md', progress }: MovieCardProps) {
   const primaryGenre = movie.genres?.[0]?.name;
 
   return (
-    <div className={`group relative flex-shrink-0 ${widthClass}`}>
-      <Link href={href} className="block">
+    <div
+      className={`group relative flex-shrink-0 ${widthClass}`}
+      onMouseEnter={() => prefetchMovieDetail(queryClient, movie.id)}
+      onFocus={() => prefetchMovieDetail(queryClient, movie.id)}
+    >
+      <Link href={href} className="block" prefetch>
         <div
           className={`relative overflow-hidden rounded-xl bg-zinc-900 shadow-md transition-all duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:shadow-red-600/20 group-hover:ring-2 group-hover:ring-red-600/70 ${heightClass}`}
         >

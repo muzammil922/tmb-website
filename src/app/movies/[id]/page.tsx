@@ -107,6 +107,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
 
   const [showPlayer, setShowPlayer] = useState(autoPlay);
   const [showTrailer, setShowTrailer] = useState(false);
+  const [loadExtra, setLoadExtra] = useState(false);
 
   // Local watchlist and history store (No login required!)
   const isInWatchlist = useWatchlistStore((s) => s.isInWatchlist(id));
@@ -125,6 +126,12 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   });
 
   // Related movies from same genres (from database)
+  useEffect(() => {
+    if (!movie) return;
+    const timer = window.setTimeout(() => setLoadExtra(true), 200);
+    return () => window.clearTimeout(timer);
+  }, [movie]);
+
   const { data: similar, isLoading: isSimilarLoading } = useQuery({
     queryKey: ['similar', id],
     queryFn: async () => {
@@ -135,7 +142,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
         return [];
       }
     },
-    enabled: !!movie,
+    enabled: loadExtra && !!movie,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -166,7 +173,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
         return [];
       }
     },
-    enabled: !!movie,
+    enabled: loadExtra && !!movie && !movie.trailerKey,
   });
 
   useEffect(() => {
@@ -174,6 +181,25 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
       setShowPlayer(true);
     }
   }, [autoPlay, movie]);
+
+  const tmdbId = movie?.tmdbId || (movie && !Number.isNaN(Number(movie.id)) ? Number(movie.id) : null);
+  const playback = movie?.playback;
+
+  const { data: playerSources } = useQuery({
+    queryKey: ['movie-sources', tmdbId, playback?.sourcesUrl],
+    queryFn: async () => {
+      const url = playback?.sourcesUrl
+        ? resolvePlaybackUrl(playback.sourcesUrl)
+        : tmdbId
+        ? resolvePlaybackUrl(`/api/player/sources/movie/${tmdbId}`)
+        : null;
+      if (!url) return null;
+      const res = await fetch(url);
+      return res.json();
+    },
+    enabled: Boolean(movie && (tmdbId || playback?.sourcesUrl)),
+    staleTime: 1000 * 60 * 10,
+  });
 
   // ─── SKELETON LOADING STATE ───
   if (isLoading) {
@@ -209,13 +235,8 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     videos?.find((v) => v.site === 'YouTube' && v.type === 'Trailer')?.key ||
     movie.trailerKey;
 
-  const playback = movie.playback;
-  const tmdbId = movie.tmdbId || (!Number.isNaN(Number(movie.id)) ? Number(movie.id) : null);
-
-  // Multi-server playback sources for guaranteed playback & chunk streaming
   const sources: VideoSource[] = [];
 
-  // 1. Direct Hosted Video / HLS from DB
   if (movie.videoUrl) {
     const isHls = movie.videoUrl.includes('.m3u8');
     sources.push({
@@ -226,28 +247,24 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     });
   }
 
-  // 2. URDBOX HLS stream
-  if (playback?.mode === 'URDBOX' && (playback.hlsUrl || playback.playerUrl)) {
-    const streamHls = resolvePlaybackUrl(playback.hlsUrl || playback.playerUrl!);
-    sources.push({
-      id: 'server-urdbox',
-      name: 'Server 1 (HLS Ultra Fast)',
-      url: streamHls,
-      type: 'hls',
+  if (playerSources?.sources?.length) {
+    playerSources.sources.forEach((src: { id: string; name: string; url: string; type: string }, idx: number) => {
+      sources.push({
+        id: src.id || `api-${idx}`,
+        name: src.name || `Server ${idx + 1}`,
+        url: resolvePlaybackUrl(src.url),
+        type: src.type === 'resolve' ? 'resolve' : src.type === 'embed' ? 'embed' : src.type === 'hls' ? 'hls' : 'mp4',
+      });
     });
-  }
-
-  // 3. Backend Embed player
-  if (playback?.mode === 'EMBED' && playback.playerUrl) {
+  } else if (playback?.mode === 'EMBED' && playback.playerUrl) {
     sources.push({
       id: 'server-embed-primary',
-      name: 'Server 2 (HD Stream)',
+      name: 'Server 1 (HD Stream)',
       url: resolvePlaybackUrl(playback.playerUrl),
       type: 'embed',
     });
   }
 
-  // 4. Fallback official trailer preview
   if (trailer && sources.length === 0) {
     sources.push({
       id: 'server-trailer',
@@ -258,7 +275,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const canPlayFull = sources.length > 0;
-  const backdrop = getTmdbImageUrl(movie.backdropPath, 'original');
+  const backdrop = getTmdbImageUrl(movie.backdropPath, 'w1280');
 
   const year = movie.releaseDate ? movie.releaseDate.split('-')[0] : null;
   const runtimeHours = movie.runtime ? Math.floor(movie.runtime / 60) : null;
@@ -273,6 +290,8 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
             src={backdrop}
             alt={movie.title}
             className="absolute inset-0 h-full w-full object-cover object-center"
+            fetchPriority="high"
+            decoding="async"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-black/35" />
@@ -466,7 +485,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
           title={movie.title}
           year={year}
           sources={sources}
-          poster={getTmdbImageUrl(movie.backdropPath, 'original') ?? undefined}
+          poster={getTmdbImageUrl(movie.posterPath, 'w780') ?? getTmdbImageUrl(movie.backdropPath, 'w780') ?? undefined}
           onProgress={(progress) => updateProgress(movie, progress)}
           onClose={() => setShowPlayer(false)}
         />

@@ -19,7 +19,7 @@ interface HeroBannerProps {
 
 export function HeroBanner({ movie }: HeroBannerProps) {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
-  const backdrop = getTmdbImageUrl(movie.backdropPath, 'original');
+  const backdrop = getTmdbImageUrl(movie.backdropPath, 'w1280');
   const isInWatchlist = useWatchlistStore((s) => s.isInWatchlist(movie.id));
   const toggleWatchlist = useWatchlistStore((s) => s.toggleWatchlist);
 
@@ -38,6 +38,8 @@ export function HeroBanner({ movie }: HeroBannerProps) {
             alt={movie.title}
             className="absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
+            fetchPriority="high"
+            decoding="async"
           />
         )}
 
