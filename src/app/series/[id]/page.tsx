@@ -144,21 +144,21 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
     if (sources.length === 0 && tmdbId) {
       sources.push(
         {
+          id: 'fallback-vidking-clean',
+          name: 'Server 1 (Ad-Free HD)',
+          url: resolvePlaybackUrl(`/api/player/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`),
+          type: 'embed',
+        },
+        {
           id: 'fallback-vidking',
-          name: 'Server 1 (HD Stream)',
+          name: 'Server 2 (Direct Stream)',
           url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
           type: 'embed',
         },
         {
           id: 'fallback-vidsrc',
-          name: 'Server 2 (Direct Cloud)',
+          name: 'Server 3 (Direct Cloud)',
           url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
-          type: 'embed',
-        },
-        {
-          id: 'fallback-videasy',
-          name: 'Server 3 (Fast Stream)',
-          url: `https://player.videasy.to/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?overlay=true`,
           type: 'embed',
         }
       );

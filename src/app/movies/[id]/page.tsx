@@ -105,7 +105,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   const searchParams = useSearchParams();
   const autoPlay = searchParams.get('play') === '1';
 
-  const [showPlayer, setShowPlayer] = useState(autoPlay);
+  const [showPlayer, setShowPlayer] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [loadExtra, setLoadExtra] = useState(false);
 
@@ -175,12 +175,6 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     },
     enabled: loadExtra && !!movie && !movie.trailerKey,
   });
-
-  useEffect(() => {
-    if (autoPlay && movie) {
-      setShowPlayer(true);
-    }
-  }, [autoPlay, movie]);
 
   const tmdbId = movie?.tmdbId || (movie && !Number.isNaN(Number(movie.id)) ? Number(movie.id) : null);
   const playback = movie?.playback;
@@ -269,21 +263,21 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   if (sources.length === 0 && tmdbId) {
     sources.push(
       {
+        id: 'fallback-vidking-clean',
+        name: 'Server 1 (Ad-Free HD)',
+        url: resolvePlaybackUrl(`/api/player/embed/movie/${tmdbId}`),
+        type: 'embed',
+      },
+      {
         id: 'fallback-vidking',
-        name: 'Server 1 (HD Stream)',
+        name: 'Server 2 (Direct Stream)',
         url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
         type: 'embed',
       },
       {
         id: 'fallback-vidsrc',
-        name: 'Server 2 (Direct Cloud)',
+        name: 'Server 3 (Direct Cloud)',
         url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}`,
-        type: 'embed',
-      },
-      {
-        id: 'fallback-videasy',
-        name: 'Server 3 (Fast Stream)',
-        url: `https://player.videasy.to/movie/${tmdbId}?overlay=true`,
         type: 'embed',
       }
     );
@@ -299,6 +293,13 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const canPlayFull = sources.length > 0;
+
+  useEffect(() => {
+    if (autoPlay && movie && canPlayFull) {
+      setShowPlayer(true);
+    }
+  }, [autoPlay, movie, canPlayFull]);
+
   const backdrop = getTmdbImageUrl(movie.backdropPath, 'w1280');
 
   const year = movie.releaseDate ? movie.releaseDate.split('-')[0] : null;
