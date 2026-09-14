@@ -582,8 +582,7 @@ export function NetflixPlayer({
             title={title}
             className="h-full w-full border-0"
             allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"
+            referrerPolicy="origin"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
           />
         </div>
