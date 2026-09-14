@@ -144,33 +144,27 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
     if (sources.length === 0 && tmdbId) {
       sources.push(
         {
-          id: 'fallback-vidking-clean',
-          name: 'Server 1 (Ad-Free HD)',
-          url: resolvePlaybackUrl(`/api/player/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`),
-          type: 'embed',
-        },
-        {
-          id: 'fallback-vidsrc-to',
-          name: 'Server 2 (Fast Stream)',
-          url: `https://vidsrc.to/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
+          id: 'fallback-vidking',
+          name: 'Server 1 (HD Stream)',
+          url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
           type: 'embed',
         },
         {
           id: 'fallback-vidsrc-pm',
-          name: 'Server 3 (Direct Cloud)',
+          name: 'Server 2 (Direct Cloud)',
           url: `https://vidsrc.pm/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
           type: 'embed',
         },
         {
           id: 'fallback-autoembed',
-          name: 'Server 4 (Auto Stream)',
+          name: 'Server 3 (Auto Stream)',
           url: `https://autoembed.co/tv/tmdb/${tmdbId}-${selectedSeasonNumber}-${selectedEpisodeNumber}`,
           type: 'embed',
         },
         {
-          id: 'fallback-vidking',
-          name: 'Server 5 (HD Backup)',
-          url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
+          id: 'fallback-vidsrc-to',
+          name: 'Server 4 (Fast Stream)',
+          url: `https://vidsrc.to/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
           type: 'embed',
         }
       );

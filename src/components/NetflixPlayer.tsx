@@ -212,22 +212,17 @@ export function NetflixPlayer({
     };
   }, [currentSource, tryNextSource]);
 
-  // Embed watchdog timeout: auto-fallback if embed hangs
+  // Embed loading timeout: dismiss loading spinner after stream starts or 6s timeout
   useEffect(() => {
     if (effectiveSource?.type !== 'embed') return;
 
     setEmbedLoading(true);
     const watchdog = setTimeout(() => {
-      if (activeSourceIndex < resolvedSources.length - 1) {
-        showToast(`⚡ Switching to backup ${resolvedSources[activeSourceIndex + 1]?.name || 'Server'}...`);
-        tryNextSource();
-      } else {
-        setEmbedLoading(false);
-      }
-    }, 4500);
+      setEmbedLoading(false);
+    }, 6000);
 
     return () => clearTimeout(watchdog);
-  }, [effectiveSource, activeSourceIndex, resolvedSources, tryNextSource, showToast]);
+  }, [effectiveSource, activeSourceIndex]);
 
   // Initialize Video & HLS
   useEffect(() => {

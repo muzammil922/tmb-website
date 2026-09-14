@@ -235,33 +235,27 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     if (list.length === 0 && tmdbId) {
       list.push(
         {
-          id: 'fallback-vidking-clean',
-          name: 'Server 1 (Ad-Free HD)',
-          url: resolvePlaybackUrl(`/api/player/embed/movie/${tmdbId}`),
-          type: 'embed',
-        },
-        {
-          id: 'fallback-vidsrc-to',
-          name: 'Server 2 (Fast Stream)',
-          url: `https://vidsrc.to/embed/movie/${tmdbId}`,
+          id: 'fallback-vidking',
+          name: 'Server 1 (HD Stream)',
+          url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
           type: 'embed',
         },
         {
           id: 'fallback-vidsrc-pm',
-          name: 'Server 3 (Direct Cloud)',
+          name: 'Server 2 (Direct Cloud)',
           url: `https://vidsrc.pm/embed/movie/${tmdbId}`,
           type: 'embed',
         },
         {
           id: 'fallback-autoembed',
-          name: 'Server 4 (Auto Stream)',
+          name: 'Server 3 (Auto Stream)',
           url: `https://autoembed.co/movie/tmdb/${tmdbId}`,
           type: 'embed',
         },
         {
-          id: 'fallback-vidking',
-          name: 'Server 5 (HD Backup)',
-          url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
+          id: 'fallback-vidsrc-to',
+          name: 'Server 4 (Fast Stream)',
+          url: `https://vidsrc.to/embed/movie/${tmdbId}`,
           type: 'embed',
         }
       );
