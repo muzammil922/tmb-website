@@ -176,11 +176,12 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     enabled: loadExtra && !!movie && !movie.trailerKey,
   });
 
-  const tmdbId = movie?.tmdbId || (movie && !Number.isNaN(Number(movie.id)) ? Number(movie.id) : null);
+  const numericId = !Number.isNaN(Number(id)) ? Number(id) : null;
+  const tmdbId = movie?.tmdbId ?? numericId;
   const playback = movie?.playback;
 
   const { data: playerSources } = useQuery({
-    queryKey: ['movie-sources', tmdbId, playback?.sourcesUrl],
+    queryKey: ['movie-sources', tmdbId, playback?.sourcesUrl || (tmdbId ? `/api/player/sources/movie/${tmdbId}` : null)],
     queryFn: async () => {
       const url = playback?.sourcesUrl
         ? resolvePlaybackUrl(playback.sourcesUrl)
@@ -191,7 +192,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
       const res = await fetch(url);
       return res.json();
     },
-    enabled: Boolean(movie && (tmdbId || playback?.sourcesUrl)),
+    enabled: Boolean(tmdbId || playback?.sourcesUrl),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -201,9 +202,8 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
 
   const sources: VideoSource[] = useMemo(() => {
     const list: VideoSource[] = [];
-    if (!movie) return list;
 
-    if (movie.videoUrl) {
+    if (movie?.videoUrl) {
       const isHls = movie.videoUrl.includes('.m3u8');
       list.push({
         id: 'server-direct',

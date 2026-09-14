@@ -40,8 +40,8 @@ export function MovieCard({ movie, size = 'md', progress }: MovieCardProps) {
   return (
     <div
       className={`group relative flex-shrink-0 ${widthClass}`}
-      onMouseEnter={() => prefetchMovieDetail(queryClient, movie.id)}
-      onFocus={() => prefetchMovieDetail(queryClient, movie.id)}
+      onMouseEnter={() => prefetchMovieDetail(queryClient, movie.id, movie.tmdbId)}
+      onFocus={() => prefetchMovieDetail(queryClient, movie.id, movie.tmdbId)}
     >
       <Link href={href} className="block" prefetch>
         <div

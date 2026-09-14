@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { HeroBanner } from '@/components/HeroBanner';
 import { PromoBannerSlider } from '@/components/PromoBannerSlider';
 import { MovieRow } from '@/components/MovieRow';
 import { MovieCard } from '@/components/MovieCard';
+import { prefetchTopMovies } from '@/lib/prefetch-movie';
 import { useWatchlistStore } from '@/store/watchlist';
 import type { Banner, HomepageSection, Movie } from '@/lib/shared';
 import { ClockIcon, SparklesIcon } from '@/components/icons';
@@ -23,6 +24,7 @@ const GENRE_FILTERS = [
 ];
 
 export default function HomePage() {
+  const queryClient = useQueryClient();
   const [selectedGenre, setSelectedGenre] = useState('All');
   const history = useWatchlistStore((s) => s.history);
 
@@ -43,6 +45,15 @@ export default function HomePage() {
     ...(heroMovie ? [heroMovie] : []),
     ...sections.flatMap((s) => s.movies ?? []),
   ].filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i);
+
+  useEffect(() => {
+    if (!data) return;
+    const topMovies = [
+      ...(data.hero ? [data.hero] : []),
+      ...(data.sections[0]?.movies ?? []),
+    ];
+    prefetchTopMovies(queryClient, topMovies);
+  }, [data, queryClient]);
 
   const filteredMovies =
     selectedGenre === 'All'
