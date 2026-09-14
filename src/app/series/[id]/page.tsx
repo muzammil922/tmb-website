@@ -139,6 +139,31 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
       }
     }
 
+    // 3. Instant resilient fallback embed sources if sources empty or pending
+    const tmdbId = series?.tmdbId || (series && !Number.isNaN(Number(series.id)) ? Number(series.id) : null);
+    if (sources.length === 0 && tmdbId) {
+      sources.push(
+        {
+          id: 'fallback-videasy',
+          name: 'Server 1 (Fast Stream)',
+          url: `https://player.videasy.to/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?overlay=true`,
+          type: 'embed',
+        },
+        {
+          id: 'fallback-vidking',
+          name: 'Server 2 (HD Stream)',
+          url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
+          type: 'embed',
+        },
+        {
+          id: 'fallback-vidsrc',
+          name: 'Server 3 (Direct Cloud)',
+          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
+          type: 'embed',
+        }
+      );
+    }
+
     return sources;
   }, [playbackData, activeEpisode, series, selectedSeasonNumber, selectedEpisodeNumber]);
 

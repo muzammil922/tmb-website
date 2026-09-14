@@ -18,6 +18,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://player.videasy.to" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://player.videasy.to" />
+        <link rel="preconnect" href="https://www.vidking.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://www.vidking.net" />
+        <link rel="preconnect" href="https://vidsrc.cc" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://vidsrc.cc" />
+      </head>
       <body className={`${geist.variable} min-h-screen bg-[#08080c] font-sans text-zinc-100 antialiased selection:bg-red-600 selection:text-white`}>
         <Providers>
           <Sidebar />

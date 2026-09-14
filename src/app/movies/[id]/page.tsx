@@ -265,6 +265,30 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     });
   }
 
+  // Instant resilient fallbacks if playerSources has not arrived yet or is empty
+  if (sources.length === 0 && tmdbId) {
+    sources.push(
+      {
+        id: 'fallback-videasy',
+        name: 'Server 1 (Fast Stream)',
+        url: `https://player.videasy.to/movie/${tmdbId}?overlay=true`,
+        type: 'embed',
+      },
+      {
+        id: 'fallback-vidking',
+        name: 'Server 2 (HD Stream)',
+        url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
+        type: 'embed',
+      },
+      {
+        id: 'fallback-vidsrc',
+        name: 'Server 3 (Direct Cloud)',
+        url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}`,
+        type: 'embed',
+      }
+    );
+  }
+
   if (trailer && sources.length === 0) {
     sources.push({
       id: 'server-trailer',

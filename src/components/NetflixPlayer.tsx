@@ -96,7 +96,8 @@ export function NetflixPlayer({
   // Menus
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
-  const [showServerMenu, setShowServerMenu] = useState(false);
+  const [embedLoading, setEmbedLoading] = useState(true);
+  const [allFailed, setAllFailed] = useState(false);
 
   // Inactivity / Auto-hide controls
   const [showControls, setShowControls] = useState(true);
@@ -141,12 +142,12 @@ export function NetflixPlayer({
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
     if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current);
-    if (isPlaying && !isScrubbing && !showSpeedMenu && !showQualityMenu && !showServerMenu) {
+    if (isPlaying && !isScrubbing && !showSpeedMenu && !showQualityMenu) {
       hideControlsTimeout.current = setTimeout(() => {
         setShowControls(false);
       }, 2600);
     }
-  }, [isPlaying, isScrubbing, showSpeedMenu, showQualityMenu, showServerMenu]);
+  }, [isPlaying, isScrubbing, showSpeedMenu, showQualityMenu]);
 
   // Mouse move resets timer
   useEffect(() => {
@@ -155,14 +156,15 @@ export function NetflixPlayer({
 
   const tryNextSource = useCallback(() => {
     if (activeSourceIndex < resolvedSources.length - 1) {
-      showToast('Switching to backup server...');
       setResolvedStreamUrl(null);
       setResolveFailed(false);
+      setEmbedLoading(true);
       setActiveSourceIndex((prev) => prev + 1);
       return true;
     }
+    setAllFailed(true);
     return false;
-  }, [activeSourceIndex, resolvedSources.length, showToast]);
+  }, [activeSourceIndex, resolvedSources.length]);
 
   // Resolve anime / dynamic sources before playback
   useEffect(() => {
@@ -173,15 +175,19 @@ export function NetflixPlayer({
     }
 
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
     setResolvedStreamUrl(null);
     setResolveFailed(false);
     setIsBuffering(true);
 
     const resolveUrl = resolvePlaybackUrl(currentSource.url);
 
-    fetch(resolveUrl)
+    fetch(resolveUrl, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
+        clearTimeout(timeoutId);
         if (cancelled) return;
         const playUrl = data.playUrl || data.proxyUrl || data.url;
         if (!playUrl) {
@@ -193,6 +199,7 @@ export function NetflixPlayer({
         setIsBuffering(false);
       })
       .catch(() => {
+        clearTimeout(timeoutId);
         if (cancelled) return;
         setResolveFailed(true);
         tryNextSource();
@@ -200,8 +207,26 @@ export function NetflixPlayer({
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [currentSource, tryNextSource]);
+
+  // Embed watchdog timeout: auto-fallback if embed hangs
+  useEffect(() => {
+    if (effectiveSource?.type !== 'embed') return;
+
+    setEmbedLoading(true);
+    const watchdog = setTimeout(() => {
+      if (activeSourceIndex < resolvedSources.length - 1) {
+        tryNextSource();
+      } else {
+        setEmbedLoading(false);
+      }
+    }, 10000);
+
+    return () => clearTimeout(watchdog);
+  }, [effectiveSource, activeSourceIndex, resolvedSources.length, tryNextSource]);
 
   // Initialize Video & HLS
   useEffect(() => {
@@ -577,6 +602,23 @@ export function NetflixPlayer({
       {/* ───── Video Element (or Embed iFrame) ───── */}
       {effectiveSource?.type === 'embed' ? (
         <div className="relative h-full w-full">
+          {embedLoading && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-none">
+              {poster && (
+                <img
+                  src={poster}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-20 filter blur-lg"
+                />
+              )}
+              <div className="relative z-10 flex flex-col items-center gap-3">
+                <div className="h-14 w-14 rounded-full border-4 border-red-600/30 border-t-red-600 animate-spin" />
+                <p className="text-xs font-semibold tracking-widest text-zinc-300 uppercase drop-shadow-md">
+                  Connecting to Stream...
+                </p>
+              </div>
+            </div>
+          )}
           <iframe
             src={effectiveSource.url}
             title={title}
@@ -584,6 +626,11 @@ export function NetflixPlayer({
             allowFullScreen
             referrerPolicy="origin"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            onLoad={() => setEmbedLoading(false)}
+            onError={() => {
+              setEmbedLoading(false);
+              tryNextSource();
+            }}
           />
         </div>
       ) : (
@@ -690,46 +737,6 @@ export function NetflixPlayer({
               5.1 AUDIO
             </span>
           </div>
-
-          {/* Server Switcher in Top Bar for Embeds */}
-          {effectiveSource?.type === 'embed' && resolvedSources.length > 1 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowServerMenu(!showServerMenu)}
-                className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/25 transition"
-              >
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span>{effectiveSource.name}</span>
-              </button>
-
-              {showServerMenu && (
-                <div className="absolute right-0 top-10 w-48 rounded-xl border border-white/10 bg-black/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                  {resolvedSources.map((src, idx) => (
-                    <button
-                      key={src.id}
-                      onClick={() => {
-                        setActiveSourceIndex(idx);
-                        setShowServerMenu(false);
-                        showToast(`Switched to ${src.name}`);
-                      }}
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition ${
-                        activeSourceIndex === idx
-                          ? 'bg-red-600 text-white font-bold'
-                          : 'text-zinc-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <span>{src.name}</span>
-                      {activeSourceIndex === idx && (
-                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {onClose && (
             <button
@@ -919,64 +926,12 @@ export function NetflixPlayer({
 
             {/* Right Controls */}
             <div className="flex items-center gap-4">
-              {/* Server Switcher */}
-              {resolvedSources.length > 1 && (
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowServerMenu(!showServerMenu);
-                      setShowSpeedMenu(false);
-                      setShowQualityMenu(false);
-                    }}
-                    className="flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20 transition"
-                    title="Change streaming server"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    <span>{currentSource?.name || 'Server'}</span>
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-
-                  {showServerMenu && (
-                    <div className="absolute bottom-10 right-0 w-48 rounded-xl border border-white/10 bg-black/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                      <div className="px-2 py-1 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                        Select Stream Server
-                      </div>
-                      {resolvedSources.map((src, idx) => (
-                        <button
-                          key={src.id}
-                          onClick={() => {
-                            setActiveSourceIndex(idx);
-                            setShowServerMenu(false);
-                            showToast(`Switched to ${src.name}`);
-                          }}
-                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition ${
-                            activeSourceIndex === idx
-                              ? 'bg-red-600 text-white font-bold'
-                              : 'text-zinc-300 hover:bg-white/10'
-                          }`}
-                        >
-                          <span>{src.name}</span>
-                          {activeSourceIndex === idx && (
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Speed Menu */}
               <div className="relative">
                 <button
                   onClick={() => {
                     setShowSpeedMenu(!showSpeedMenu);
                     setShowQualityMenu(false);
-                    setShowServerMenu(false);
                   }}
                   className="rounded px-2 py-1 text-xs font-bold text-white transition hover:bg-white/10"
                   title="Playback Speed"
@@ -1018,7 +973,6 @@ export function NetflixPlayer({
                     onClick={() => {
                       setShowQualityMenu(!showQualityMenu);
                       setShowSpeedMenu(false);
-                      setShowServerMenu(false);
                     }}
                     className="flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-white transition hover:bg-white/10"
                     title="Video Quality"
@@ -1102,6 +1056,40 @@ export function NetflixPlayer({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ───── All Sources Failed Fallback Screen ───── */}
+      {allFailed && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/95 px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600/20 text-red-500 mb-4">
+            <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-white md:text-2xl">Stream Connection Issue</h2>
+          <p className="mt-2 max-w-md text-sm text-zinc-400">
+            We encountered an issue connecting to playback sources for this title. Click retry to reconnect.
+          </p>
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              onClick={() => {
+                setAllFailed(false);
+                setActiveSourceIndex(0);
+                setEmbedLoading(true);
+              }}
+              className="rounded-xl bg-red-600 px-6 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 hover:scale-105 shadow-lg shadow-red-600/30"
+            >
+              Retry Connection
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="rounded-xl bg-white/10 px-6 py-2.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/20"
+              >
+                Close
+              </button>
+            )}
           </div>
         </div>
       )}
