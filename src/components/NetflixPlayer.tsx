@@ -219,14 +219,15 @@ export function NetflixPlayer({
     setEmbedLoading(true);
     const watchdog = setTimeout(() => {
       if (activeSourceIndex < resolvedSources.length - 1) {
+        showToast(`⚡ Switching to backup ${resolvedSources[activeSourceIndex + 1]?.name || 'Server'}...`);
         tryNextSource();
       } else {
         setEmbedLoading(false);
       }
-    }, 10000);
+    }, 4500);
 
     return () => clearTimeout(watchdog);
-  }, [effectiveSource, activeSourceIndex, resolvedSources.length, tryNextSource]);
+  }, [effectiveSource, activeSourceIndex, resolvedSources, tryNextSource, showToast]);
 
   // Initialize Video & HLS
   useEffect(() => {
@@ -603,7 +604,7 @@ export function NetflixPlayer({
       {effectiveSource?.type === 'embed' ? (
         <div className="relative h-full w-full">
           {embedLoading && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-none">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm pointer-events-auto">
               {poster && (
                 <img
                   src={poster}
@@ -614,8 +615,31 @@ export function NetflixPlayer({
               <div className="relative z-10 flex flex-col items-center gap-3">
                 <div className="h-14 w-14 rounded-full border-4 border-red-600/30 border-t-red-600 animate-spin" />
                 <p className="text-xs font-semibold tracking-widest text-zinc-300 uppercase drop-shadow-md">
-                  Connecting to Stream...
+                  Connecting to {effectiveSource?.name || 'Stream'}...
                 </p>
+                {resolvedSources.length > 1 && (
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 max-w-md px-4">
+                    {resolvedSources.map((s, idx) => (
+                      <button
+                        key={s.id || idx}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSourceIndex(idx);
+                          setResolvedStreamUrl(null);
+                          setEmbedLoading(true);
+                          showToast(`Connecting to ${s.name}...`);
+                        }}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          activeSourceIndex === idx
+                            ? 'bg-red-600 text-white shadow-md ring-2 ring-red-400'
+                            : 'bg-white/15 text-zinc-300 hover:bg-white/25 hover:text-white'
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -738,22 +762,34 @@ export function NetflixPlayer({
             </span>
           </div>
 
-          {/* Subtle 1-Click Stream Switcher if multiple sources exist */}
+          {/* Top Server Selection Pills Bar */}
           {resolvedSources.length > 1 && (
-            <button
-              onClick={() => {
-                const nextIdx = (activeSourceIndex + 1) % resolvedSources.length;
-                setActiveSourceIndex(nextIdx);
-                setResolvedStreamUrl(null);
-                setEmbedLoading(true);
-                showToast(`Switched to Server ${nextIdx + 1}`);
-              }}
-              className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-zinc-200 backdrop-blur-md transition hover:bg-white/25 hover:text-white"
-              title="Not playing? Click to switch to backup stream"
-            >
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span>Server {activeSourceIndex + 1}/{resolvedSources.length}</span>
-            </button>
+            <div className="flex items-center gap-1 rounded-full bg-black/60 p-1 backdrop-blur-md border border-white/10">
+              {resolvedSources.map((s, idx) => (
+                <button
+                  key={s.id || idx}
+                  onClick={() => {
+                    setActiveSourceIndex(idx);
+                    setResolvedStreamUrl(null);
+                    setEmbedLoading(true);
+                    showToast(`Switched to Server ${idx + 1} (${s.name.replace(/^Server \d+ /, '')})`);
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                    activeSourceIndex === idx
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-zinc-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title={s.name}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      activeSourceIndex === idx ? 'bg-white animate-ping' : 'bg-emerald-400'
+                    }`}
+                  />
+                  <span>Server {idx + 1}</span>
+                </button>
+              ))}
+            </div>
           )}
 
           {onClose && (

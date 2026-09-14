@@ -150,15 +150,27 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
           type: 'embed',
         },
         {
-          id: 'fallback-vidking',
-          name: 'Server 2 (Direct Stream)',
-          url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
+          id: 'fallback-vidsrc-to',
+          name: 'Server 2 (Fast Stream)',
+          url: `https://vidsrc.to/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
           type: 'embed',
         },
         {
-          id: 'fallback-vidsrc',
+          id: 'fallback-vidsrc-pm',
           name: 'Server 3 (Direct Cloud)',
-          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
+          url: `https://vidsrc.pm/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}`,
+          type: 'embed',
+        },
+        {
+          id: 'fallback-autoembed',
+          name: 'Server 4 (Auto Stream)',
+          url: `https://autoembed.co/tv/tmdb/${tmdbId}-${selectedSeasonNumber}-${selectedEpisodeNumber}`,
+          type: 'embed',
+        },
+        {
+          id: 'fallback-vidking',
+          name: 'Server 5 (HD Backup)',
+          url: `https://www.vidking.net/embed/tv/${tmdbId}/${selectedSeasonNumber}/${selectedEpisodeNumber}?autoPlay=true`,
           type: 'embed',
         }
       );
@@ -221,6 +233,16 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-screen bg-[#08080c] pb-24 pt-24">
+      {/* Stream domain preconnects for instant playback */}
+      <link rel="preconnect" href="https://vidsrc.to" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://vidsrc.pm" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://autoembed.co" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://www.vidking.net" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://vidsrc.to" />
+      <link rel="dns-prefetch" href="https://vidsrc.pm" />
+      <link rel="dns-prefetch" href="https://autoembed.co" />
+      <link rel="dns-prefetch" href="https://www.vidking.net" />
+
       {/* Breadcrumb Navigation */}
       <div className="mx-auto max-w-7xl px-5 md:px-12 mb-4">
         <div className="flex items-center gap-2 text-xs text-zinc-400">
