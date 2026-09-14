@@ -738,6 +738,24 @@ export function NetflixPlayer({
             </span>
           </div>
 
+          {/* Subtle 1-Click Stream Switcher if multiple sources exist */}
+          {resolvedSources.length > 1 && (
+            <button
+              onClick={() => {
+                const nextIdx = (activeSourceIndex + 1) % resolvedSources.length;
+                setActiveSourceIndex(nextIdx);
+                setResolvedStreamUrl(null);
+                setEmbedLoading(true);
+                showToast(`Switched to Server ${nextIdx + 1}`);
+              }}
+              className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-zinc-200 backdrop-blur-md transition hover:bg-white/25 hover:text-white"
+              title="Not playing? Click to switch to backup stream"
+            >
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span>Server {activeSourceIndex + 1}/{resolvedSources.length}</span>
+            </button>
+          )}
+
           {onClose && (
             <button
               onClick={onClose}
