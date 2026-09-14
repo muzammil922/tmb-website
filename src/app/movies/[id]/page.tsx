@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -195,6 +195,86 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
     staleTime: 1000 * 60 * 10,
   });
 
+  const trailer =
+    videos?.find((v) => v.site === 'YouTube' && v.type === 'Trailer')?.key ||
+    movie?.trailerKey;
+
+  const sources: VideoSource[] = useMemo(() => {
+    const list: VideoSource[] = [];
+    if (!movie) return list;
+
+    if (movie.videoUrl) {
+      const isHls = movie.videoUrl.includes('.m3u8');
+      list.push({
+        id: 'server-direct',
+        name: isHls ? 'Server 1 (HLS Ultra Fast)' : 'Server 1 (Fast HD Chunks)',
+        url: movie.videoUrl,
+        type: isHls ? 'hls' : 'mp4',
+      });
+    }
+
+    if (playerSources?.sources?.length) {
+      playerSources.sources.forEach((src: { id: string; name: string; url: string; type: string }, idx: number) => {
+        list.push({
+          id: src.id || `api-${idx}`,
+          name: src.name || `Server ${idx + 1}`,
+          url: resolvePlaybackUrl(src.url),
+          type: src.type === 'resolve' ? 'resolve' : src.type === 'embed' ? 'embed' : src.type === 'hls' ? 'hls' : 'mp4',
+        });
+      });
+    } else if (playback?.mode === 'EMBED' && playback.playerUrl) {
+      list.push({
+        id: 'server-embed-primary',
+        name: 'Server 1 (HD Stream)',
+        url: resolvePlaybackUrl(playback.playerUrl),
+        type: 'embed',
+      });
+    }
+
+    // Instant resilient fallbacks if playerSources has not arrived yet or is empty
+    if (list.length === 0 && tmdbId) {
+      list.push(
+        {
+          id: 'fallback-vidking-clean',
+          name: 'Server 1 (Ad-Free HD)',
+          url: resolvePlaybackUrl(`/api/player/embed/movie/${tmdbId}`),
+          type: 'embed',
+        },
+        {
+          id: 'fallback-vidking',
+          name: 'Server 2 (Direct Stream)',
+          url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
+          type: 'embed',
+        },
+        {
+          id: 'fallback-vidsrc',
+          name: 'Server 3 (Direct Cloud)',
+          url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}`,
+          type: 'embed',
+        }
+      );
+    }
+
+    if (trailer && list.length === 0) {
+      list.push({
+        id: 'server-trailer',
+        name: 'Official Trailer Preview',
+        url: `https://www.youtube-nocookie.com/embed/${trailer}?autoplay=1`,
+        type: 'embed',
+      });
+    }
+
+    return list;
+  }, [movie, playerSources, playback, tmdbId, trailer]);
+
+  const canPlayFull = sources.length > 0;
+
+  useEffect(() => {
+    if (autoPlay && movie && canPlayFull) {
+      setShowPlayer(true);
+    }
+  }, [autoPlay, movie, canPlayFull]);
+
   // ─── SKELETON LOADING STATE ───
   if (isLoading) {
     return (
@@ -224,81 +304,6 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
-
-  const trailer =
-    videos?.find((v) => v.site === 'YouTube' && v.type === 'Trailer')?.key ||
-    movie.trailerKey;
-
-  const sources: VideoSource[] = [];
-
-  if (movie.videoUrl) {
-    const isHls = movie.videoUrl.includes('.m3u8');
-    sources.push({
-      id: 'server-direct',
-      name: isHls ? 'Server 1 (HLS Ultra Fast)' : 'Server 1 (Fast HD Chunks)',
-      url: movie.videoUrl,
-      type: isHls ? 'hls' : 'mp4',
-    });
-  }
-
-  if (playerSources?.sources?.length) {
-    playerSources.sources.forEach((src: { id: string; name: string; url: string; type: string }, idx: number) => {
-      sources.push({
-        id: src.id || `api-${idx}`,
-        name: src.name || `Server ${idx + 1}`,
-        url: resolvePlaybackUrl(src.url),
-        type: src.type === 'resolve' ? 'resolve' : src.type === 'embed' ? 'embed' : src.type === 'hls' ? 'hls' : 'mp4',
-      });
-    });
-  } else if (playback?.mode === 'EMBED' && playback.playerUrl) {
-    sources.push({
-      id: 'server-embed-primary',
-      name: 'Server 1 (HD Stream)',
-      url: resolvePlaybackUrl(playback.playerUrl),
-      type: 'embed',
-    });
-  }
-
-  // Instant resilient fallbacks if playerSources has not arrived yet or is empty
-  if (sources.length === 0 && tmdbId) {
-    sources.push(
-      {
-        id: 'fallback-vidking-clean',
-        name: 'Server 1 (Ad-Free HD)',
-        url: resolvePlaybackUrl(`/api/player/embed/movie/${tmdbId}`),
-        type: 'embed',
-      },
-      {
-        id: 'fallback-vidking',
-        name: 'Server 2 (Direct Stream)',
-        url: `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`,
-        type: 'embed',
-      },
-      {
-        id: 'fallback-vidsrc',
-        name: 'Server 3 (Direct Cloud)',
-        url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}`,
-        type: 'embed',
-      }
-    );
-  }
-
-  if (trailer && sources.length === 0) {
-    sources.push({
-      id: 'server-trailer',
-      name: 'Official Trailer Preview',
-      url: `https://www.youtube-nocookie.com/embed/${trailer}?autoplay=1`,
-      type: 'embed',
-    });
-  }
-
-  const canPlayFull = sources.length > 0;
-
-  useEffect(() => {
-    if (autoPlay && movie && canPlayFull) {
-      setShowPlayer(true);
-    }
-  }, [autoPlay, movie, canPlayFull]);
 
   const backdrop = getTmdbImageUrl(movie.backdropPath, 'w1280');
 
